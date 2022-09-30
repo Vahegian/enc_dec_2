@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Enc Dec</title>
+    <style>
+        html {
+            background-color: #000000c1;
+            color: beige;
+        }
+
+        #browser,
+        #path {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            align-items: center;
+        }
+
+        #browser {
+            margin-top: 60px;
+            margin-bottom: 30vh;
+        }
+
+        #path {
+            background-color: black;
+            position: fixed;
+            top: 0;
+            left: 0;
+            padding: 0 2%;
+            margin: 0;
+            width: 96%;
+            height: 50px;
+            overflow-y: auto;
+            flex-wrap: nowrap;
+        }
+
+        .entry {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            margin: 10px;
+            cursor: pointer;
+            width: 20vw;
+            max-width: 300px;
+            min-width: 150px;
+        }
+
+        video, img{
+            max-width: 100%;
+            aspect-ratio: 16/9;
+        }
+
+        .entry>div {
+            min-width: 50px;
+            min-height: 50px;
+        }
+
+        .entry span {
+            margin: 5px 0;
+        }
+
+        #home {
+            position: fixed;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            bottom: 5vh;
+            right: 5vw;
+            cursor: pointer;
+            background-color: cadetblue;
+            border-radius: 10px;
+            border-style: none;
+            padding: 10px;
+            z-index: 10;
+        }
+
+        img#img-display{
+            position: fixed;
+            display: none;
+            top: 0;
+            left: 0;
+            width: 99vw;
+            height: 100vh;
+            object-fit: contain;
+            margin: 0;
+            padding: 0;
+        }
+
+        img#img-display[src]:not([src=""]){
+            display: block;
+            background-color: black;
+            z-index: 100;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="home">
+        <br>
+        <u onclick="ls('/')">Home</u>
+        <br>
+        <input type="file" onchange="upload(event).then();">
+        <br>
+        <input type="file" onchange="upload(event).then();" webkitdirectory directory multiple>
+        <br>
+        <span id="upload_info"></span>
+        <br>
+        <span id="upload_total"></span>
+        <span id="batch_limit"></span>
+    </div>
+    <div id="path"></div>
+    <div id="browser"></div>
+    <img src="" id="img-display" onclick="document.querySelector('#img-display').src=''">
+
+    <script>
+        const folderSVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Pro 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license (Commercial License) Copyright 2022 Fonticons, Inc. --><path d="M64 480H448c35.3 0 64-28.7 64-64V160c0-35.3-28.7-64-64-64H298.5c-17 0-33.3-6.7-45.3-18.7L226.7 50.7c-12-12-28.3-18.7-45.3-18.7H64C28.7 32 0 60.7 0 96V416c0 35.3 28.7 64 64 64z"/></svg>`
+        const fileSVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 384 512"><!--! Font Awesome Pro 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license (Commercial License) Copyright 2022 Fonticons, Inc. --><path d="M0 64C0 28.7 28.7 0 64 0H224V128c0 17.7 14.3 32 32 32H384V448c0 35.3-28.7 64-64 64H64c-35.3 0-64-28.7-64-64V64zm384 64H256V0L384 128z"/></svg>`
+        let cur_dir = "";
+
+        const name_short = (name)=>{return name.length<20? name : `${name.substr(0, 10)}...${name.substr(name.length-5, name.length-1)}`}
+
+        function update_path_div(path) {
+            cur_dir = path;
+            document.querySelector("#path").innerHTML = '';
+            let temp_path = ""
+            cur_dir.split("/").forEach((v, i) => {
+                if (v == "") return
+                temp_path += `/${v}`;
+                document.querySelector("#path").innerHTML += `
+                    <span style="margin: 0 3px;">/</span>
+                    <u style="cursor: pointer; margin: 0 3px;" onclick="ls('${temp_path}')">${name_short(v)}</u>
+                `;
+            })
+        }
+
+        function get_right_content(path, name){
+            let l_name = name.toLocaleLowerCase();
+            if(l_name.endsWith(".ts") || l_name.endsWith(".mp4") || l_name.endsWith(".avi")){
+                return `<video src="/download?path=${path}" controls></video>`
+            }
+
+            if(l_name.endsWith(".gif") || l_name.endsWith(".png") || l_name.endsWith(".jpg") || l_name.endsWith(".jpeg")){
+                return `<img src="/download?path=${path}" onclick="document.querySelector('#img-display').src='/download?path=${path}'"></img>`
+            }
+
+            return fileSVG
+        }
+
+        function ls(path) {
+            fetch(`/browse?path=${path}`).then(res => {
+                if (res.status !== 200) return
+                res.json().then(data => {
+                    {{!-- console.log(data) --}}
+                    update_path_div(path);
+                    document.querySelector("#browser").innerHTML = "";
+                    data.forEach((v, i) => {
+                        document.querySelector("#browser").innerHTML +=
+                            `
+                                <div class="entry" ${v.is_dir && `onclick="ls('${cur_dir}/${v.enc_name}')"`}>
+                                    <div>${v.is_dir ? folderSVG : get_right_content(`${cur_dir}/${v.enc_name}`, v.name)}</div>
+                                    <span>${name_short(v.name)}</span>
+                                    <span>${name_short(v.enc_name)}</span>
+                                    ${!v.is_dir ? `<a href='/download?path=${cur_dir}/${v.enc_name}' download="${v.name}">Download</a>` : ''}
+                                </div>
+                            `
+
+                    })
+                })
+            })
+        }
+
+        async function upload_with_progress(url, data, json, progress) {
+            let xhr = new XMLHttpRequest();
+            xhr.open("POST", url);
+            if (progress !== undefined) {
+                xhr.upload.addEventListener("progress", function (evt) {
+                    //console.log(evt, evt.target);
+                    if (evt.lengthComputable) {
+                        var percentComplete = evt.loaded / evt.total;
+                        document.querySelector("#upload_info").innerHTML = `${progress} -- ${(percentComplete * 100).toFixed(2)}%`;
+                        {{!-- console.log(url, percentComplete); --}}
+                    } 
+                }, false);
+            }
+            return (new Promise(function (resolve, reject) {
+                xhr.onload = function () {
+                    if (this.status >= 200 && this.status < 300) {
+                        let data = json ? JSON.parse(xhr.response) : xhr.response;
+                        resolve({ status: this.status, data });
+                    } else {
+                        reject({
+                            status: this.status,
+                            statusText: xhr.statusText
+                        });
+                    }
+                };
+                xhr.send(data) // todo catch error
+            }))
+        }
+
+        var uploaded_count=0;
+        var uploading_count=0;
+        var total_to_upload=0;
+        const BATCH_LIMIT = 100;
+        let upload_total_span = document.querySelector("#upload_total");
+        let batch_limit_span = document.querySelector("#batch_limit");
+
+        async function upload(e) {
+            {{!-- console.log(e.target.files); --}}
+            uploaded_count=0;
+            uploading_count=0;
+            total_to_upload = e.target.files.length;
+            upload_total_span.innerHTML = `${uploading_count}/${total_to_upload}`;
+            let files = Array.from(e.target.files);
+            let u_iter = setInterval(()=>{
+                if(files.length===0) {
+                    clearInterval(u_iter);
+                    return;
+                }
+                batch_limit_span.innerHTML = "conc. not limited";
+                while (true){
+                    if (files.length===0){break;}
+                    if(uploading_count>=BATCH_LIMIT){
+                        batch_limit_span.innerHTML = `conc. limited to ${BATCH_LIMIT}`;   
+                        break;
+                    } 
+                    let v = files.pop();
+                    upload_with_progress(`/upload?path=${cur_dir}/${v.webkitRelativePath !== "" ? v.webkitRelativePath : v.name}`, v, false, uploading_count)
+                    .then(res=>{
+                        uploaded_count+=1;
+                        uploading_count-=1;
+                        upload_total_span.innerHTML = `${uploaded_count}/${total_to_upload}`;
+                        if (res.status !== 200) return;
+                    })
+                    uploading_count+=1;
+                }
+            }, 1000)
+        }
+
+        document.addEventListener("DOMContentLoaded", () => {
+            ls("");
+        });
+    </script>
+</body>
+
+</html>
