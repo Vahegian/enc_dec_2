@@ -36,6 +36,7 @@
             height: 50px;
             overflow-y: auto;
             flex-wrap: nowrap;
+            z-index: 9999;
         }
 
         .entry {
@@ -80,6 +81,7 @@
             z-index: 10;
         }
 
+        img{object-fit: contain;}
         img#img-display{
             position: fixed;
             display: none;
@@ -87,7 +89,6 @@
             left: 0;
             width: 99vw;
             height: 100vh;
-            object-fit: contain;
             margin: 0;
             padding: 0;
         }
@@ -122,11 +123,11 @@
         const folderSVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Pro 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license (Commercial License) Copyright 2022 Fonticons, Inc. --><path d="M64 480H448c35.3 0 64-28.7 64-64V160c0-35.3-28.7-64-64-64H298.5c-17 0-33.3-6.7-45.3-18.7L226.7 50.7c-12-12-28.3-18.7-45.3-18.7H64C28.7 32 0 60.7 0 96V416c0 35.3 28.7 64 64 64z"/></svg>`
         const fileSVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 384 512"><!--! Font Awesome Pro 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license (Commercial License) Copyright 2022 Fonticons, Inc. --><path d="M0 64C0 28.7 28.7 0 64 0H224V128c0 17.7 14.3 32 32 32H384V448c0 35.3-28.7 64-64 64H64c-35.3 0-64-28.7-64-64V64zm384 64H256V0L384 128z"/></svg>`
         let cur_dir = "";
+        let dir_dec_map = new Map();
 
         const name_short = (name)=>{return name.length<20? name : `${name.substr(0, 10)}...${name.substr(name.length-5, name.length-1)}`}
 
-        function update_path_div(path) {
-            cur_dir = path;
+        function update_path_div() {
             document.querySelector("#path").innerHTML = '';
             let temp_path = ""
             cur_dir.split("/").forEach((v, i) => {
@@ -134,7 +135,7 @@
                 temp_path += `/${v}`;
                 document.querySelector("#path").innerHTML += `
                     <span style="margin: 0 3px;">/</span>
-                    <u style="cursor: pointer; margin: 0 3px;" onclick="ls('${temp_path}')">${name_short(v)}</u>
+                    <u style="cursor: pointer; margin: 0 3px;" onclick="ls('${temp_path}')">${name_short(dir_dec_map.get(v))}</u>
                 `;
             })
         }
@@ -155,11 +156,12 @@
         function ls(path) {
             fetch(`/browse?path=${path}`).then(res => {
                 if (res.status !== 200) return
+                cur_dir = path;
                 res.json().then(data => {
                     {{!-- console.log(data) --}}
-                    update_path_div(path);
                     document.querySelector("#browser").innerHTML = "";
                     data.forEach((v, i) => {
+                        dir_dec_map.set(v.enc_name, v.name);
                         document.querySelector("#browser").innerHTML +=
                             `
                                 <div class="entry" ${v.is_dir && `onclick="ls('${cur_dir}/${v.enc_name}')"`}>
@@ -170,7 +172,8 @@
                                 </div>
                             `
 
-                    })
+                    });
+                    update_path_div();
                 })
             })
         }
@@ -218,12 +221,19 @@
             total_to_upload = e.target.files.length;
             upload_total_span.innerHTML = `${uploading_count}/${total_to_upload}`;
             let files = Array.from(e.target.files);
+            let dec_dir = "";
+            cur_dir.split("/").forEach((v, i)=>{
+                if(v==="") return;
+                dec_dir=`${dec_dir}/${dir_dec_map.get(v)}`
+            })
+            console.log(cur_dir, dec_dir);
             let u_iter = setInterval(()=>{
                 if(files.length===0) {
                     clearInterval(u_iter);
                     return;
                 }
                 batch_limit_span.innerHTML = "conc. not limited";
+
                 while (true){
                     if (files.length===0){break;}
                     if(uploading_count>=BATCH_LIMIT){
@@ -231,7 +241,7 @@
                         break;
                     } 
                     let v = files.pop();
-                    upload_with_progress(`/upload?path=${cur_dir}/${v.webkitRelativePath !== "" ? v.webkitRelativePath : v.name}`, v, false, uploading_count)
+                    upload_with_progress(`/upload?path=${dec_dir}/${v.webkitRelativePath !== "" ? v.webkitRelativePath : v.name}`, v, false, uploading_count)
                     .then(res=>{
                         uploaded_count+=1;
                         uploading_count-=1;
