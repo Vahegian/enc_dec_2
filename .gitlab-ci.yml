@@ -2,6 +2,10 @@ stages:
   - compile
   - deploy
 
+workflow:
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+
 build_bin:
   stage: compile
   image: rust:1.64.0-buster
