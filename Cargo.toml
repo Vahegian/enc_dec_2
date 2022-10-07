@@ -19,6 +19,7 @@ bytes = "1.2.1"
 hex = "0.4.3"
 structopt = "0.3.25"
 async-recursion = "1.0.0"
+futures = "0.3.24"
 
 [dependencies.rocket]
 version = "0.5.0-rc.2"

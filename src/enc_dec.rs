@@ -2,11 +2,16 @@ use anyhow::anyhow;
 use chacha20poly1305::KeyInit;
 use chacha20poly1305::{aead::stream, XChaCha20Poly1305};
 use rocket::data::DataStream;
-use rocket::response::stream::ByteStream;
+// use rocket::response::stream::ReaderStream;
 use rocket::tokio::fs::File;
 use rocket::tokio::io::AsyncReadExt;
 use rocket::tokio::io::AsyncWriteExt;
+use rocket::tokio::sync::mpsc::Sender;
 use std::io::ErrorKind;
+
+use crate::BUFFER_SIZE;
+
+// TODO turn this into a struct and impl Stream for async enc/dec
 
 pub fn encrypt_str(data: &str, key: &[u8], nonce: &[u8]) -> Result<String, anyhow::Error> {
     if key.len() != 32 {
@@ -57,7 +62,7 @@ pub async fn encrypt_stream(
     let aead = XChaCha20Poly1305::new(key.as_ref().into());
     let mut stream_encryptor = stream::EncryptorBE32::from_aead(aead, nonce.as_ref().into());
 
-    const BUFFER_LEN: usize = 2048;
+    const BUFFER_LEN: usize = BUFFER_SIZE;
     let mut dist_file = File::create(dist_file_path).await?;
     loop {
         let mut buffer = [0u8; BUFFER_LEN];
@@ -94,7 +99,8 @@ pub async fn decrypt_stream(
     dist_file_path: &str,
     key: &[u8],
     nonce: &[u8],
-) -> Result<ByteStream![Vec<u8>], anyhow::Error> {
+    tx: Sender<Vec<u8>>,
+) -> Result<(), anyhow::Error> {
     if key.len() != 32 {
         return Err(anyhow!("Key len not == 32"));
     }
@@ -103,31 +109,32 @@ pub async fn decrypt_stream(
     }
     let aead = XChaCha20Poly1305::new(key.as_ref().into());
     let mut stream_decryptor = stream::DecryptorBE32::from_aead(aead, nonce.as_ref().into());
-    const BUFFER_LEN: usize = 2048 + 16;
+    const BUFFER_LEN: usize = BUFFER_SIZE + 16;
     let mut buffer = [0u8; BUFFER_LEN];
     let mut dist_file = File::open(dist_file_path).await?;
 
-    Ok(ByteStream! {
-        loop {
-
-            let read_count = dist_file.read(&mut buffer).await.unwrap();
-
-            if read_count == BUFFER_LEN {
-                let plaintext = stream_decryptor
-                    .decrypt_next(buffer.as_slice())
-                    .map_err(|err| anyhow!("Decrypting large file: {}", err)).unwrap();
-                    yield plaintext.to_vec()
-            } else if read_count == 0 {
-                break;
-            } else {
-                let plaintext = stream_decryptor
-                    .decrypt_last(&buffer[..read_count])
-                    .map_err(|err| anyhow!("Decrypting large file: {}", err)).unwrap();
-                    yield plaintext.to_vec();
-                break;
-            }
+    // Ok(ReaderStream! {
+    loop {
+        let read_count = dist_file.read(&mut buffer).await?;
+        if read_count == BUFFER_LEN {
+            let plaintext = stream_decryptor
+                .decrypt_next(buffer.as_slice())
+                .map_err(|err| anyhow!("Decrypting large file: {}", err))?;
+            // yield plaintext.to_vec()
+            tx.send(plaintext.to_vec()).await?;
+        } else if read_count == 0 {
+            break;
+        } else {
+            let plaintext = stream_decryptor
+                .decrypt_last(&buffer[..read_count])
+                .map_err(|err| anyhow!("Decrypting large file: {}", err))?;
+            // yield plaintext.to_vec();
+            tx.send(plaintext.to_vec()).await?;
+            break;
         }
-    })
+    }
+    // })
+    Ok(())
 }
 
 pub async fn encrypt_large_file(
@@ -145,7 +152,7 @@ pub async fn encrypt_large_file(
     let aead = XChaCha20Poly1305::new(key.as_ref().into());
     let mut stream_encryptor = stream::EncryptorBE32::from_aead(aead, nonce.as_ref().into());
 
-    const BUFFER_LEN: usize = 2048;
+    const BUFFER_LEN: usize = BUFFER_SIZE;
     let mut buffer = [0u8; BUFFER_LEN];
 
     let mut source_file = File::open(source_file_path).await?;
@@ -186,7 +193,7 @@ pub async fn decrypt_large_file(
     let aead = XChaCha20Poly1305::new(key.as_ref().into());
     let mut stream_decryptor = stream::DecryptorBE32::from_aead(aead, nonce.as_ref().into());
 
-    const BUFFER_LEN: usize = 2048 + 16;
+    const BUFFER_LEN: usize = BUFFER_SIZE + 16;
     let mut buffer = [0u8; BUFFER_LEN];
 
     let mut encrypted_file = File::open(encrypted_file_path).await?;

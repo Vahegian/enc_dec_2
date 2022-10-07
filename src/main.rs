@@ -15,6 +15,8 @@ mod utils;
 use utils::dec_local;
 use utils::enc_local;
 
+pub const BUFFER_SIZE: usize = 2048;
+
 macro_rules! get_routes {
   ($n:ident -> [$($r:expr),*]) => {
     fn $n() -> Vec<Route>{
