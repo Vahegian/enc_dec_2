@@ -103,6 +103,7 @@
 
 <body>
     <div id="home">
+        <input id="access_key" type="password" placeholder="access_key">
         <br>
         <u onclick="ls('/')">Home</u>
         <br>
@@ -125,6 +126,10 @@
         let cur_dir = "";
         let dir_dec_map = new Map();
 
+        function get_access_key(){
+            return document.querySelector("input#access_key").value
+        }
+
         const name_short = (name)=>{return name.length<20? name : `${name.substr(0, 10)}...${name.substr(name.length-5, name.length-1)}`}
 
         function update_path_div() {
@@ -143,18 +148,18 @@
         function get_right_content(path, name){
             let l_name = name.toLocaleLowerCase();
             if(l_name.endsWith(".ts") || l_name.endsWith(".mp4") || l_name.endsWith(".avi")){
-                return `<video src="/download?path=${path}" controls></video>`
+                return `<video src="/download?path=${path}&key=${get_access_key()}" controls></video>`
             }
 
             if(l_name.endsWith(".gif") || l_name.endsWith(".png") || l_name.endsWith(".jpg") || l_name.endsWith(".jpeg")){
-                return `<img src="/download?path=${path}" onclick="document.querySelector('#img-display').src='/download?path=${path}'"></img>`
+                return `<img src="/download?path=${path}&key=${get_access_key()}" onclick="document.querySelector('#img-display').src='/download?path=${path}&key=${get_access_key()}'"></img>`
             }
 
             return fileSVG
         }
 
         function ls(path) {
-            fetch(`/browse?path=${path}`).then(res => {
+            fetch(`/browse?path=${path}&key=${get_access_key()}`).then(res => {
                 if (res.status !== 200) return
                 cur_dir = path;
                 res.json().then(data => {
@@ -241,7 +246,7 @@
                         break;
                     } 
                     let v = files.pop();
-                    upload_with_progress(`/upload?path=${dec_dir}/${v.webkitRelativePath !== "" ? v.webkitRelativePath : v.name}`, v, false, uploading_count)
+                    upload_with_progress(`/upload?key=${get_access_key()}&path=${dec_dir}/${v.webkitRelativePath !== "" ? v.webkitRelativePath : v.name}`, v, false, uploading_count)
                     .then(res=>{
                         uploaded_count+=1;
                         uploading_count-=1;

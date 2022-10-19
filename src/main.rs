@@ -94,6 +94,7 @@ async fn main() {
             key: large_file_key,
             nonce: large_file_nonce,
             data_dir: conf.data_dir,
+            access_key: conf.access_key
         })
         .attach(Template::fairing())
         .launch()

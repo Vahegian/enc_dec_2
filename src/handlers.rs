@@ -22,12 +22,19 @@ use crate::{
 use crate::enc_dec::{decrypt_str, decrypt_stream, encrypt_str, encrypt_stream};
 use crate::utils::create_dirs;
 
-#[post("/upload?<path>", data = "<file>")]
+#[post("/upload?<path>&<key>", data = "<file>")]
 pub async fn upload(
     path: &str,
+    key: &str,
     file: Data<'_>,
     state: &rocket::State<State>,
 ) -> status::Custom<Json<Value>> {
+    if !state.access_key.eq(key) {
+        return status::Custom(
+            Status::BadRequest,
+            Json(json!("Failed, bad access key")),
+        );
+    }
     let (enc_path, f_name) =
         match create_dirs(path, &state.data_dir, &state.key[..], &state.nonce[..]).await {
             Ok(v) => v,
@@ -95,11 +102,18 @@ impl<'r> rocket::response::Responder<'r, 'static> for ProxyData {
     }
 }
 
-#[get("/download?<path>")]
+#[get("/download?<path>&<key>")]
 pub async fn download(
     path: &str,
+    key: &str,
     state: &rocket::State<State>,
 ) -> Result<ProxyData, status::Custom<Json<Value>>> {
+    if !state.access_key.eq(key) {
+        return Err(status::Custom(
+            Status::BadRequest,
+            Json(json!("Failed, bad access key")),
+        ));
+    }
     let full_path = format!("{}/{path}", state.data_dir);
     if !fs::metadata(&full_path).await.is_ok() {
         return Err(status::Custom(
@@ -152,8 +166,18 @@ pub async fn download(
 //     }
 // }
 
-#[get("/browse?<path>")]
-pub async fn browse(path: &str, state: &rocket::State<State>) -> status::Custom<Json<Value>> {
+#[get("/browse?<path>&<key>")]
+pub async fn browse(
+    path: &str,
+    key: &str,
+    state: &rocket::State<State>,
+) -> status::Custom<Json<Value>> {
+    if !state.access_key.eq(key) {
+        return status::Custom(
+            Status::BadRequest,
+            Json(json!("Failed, bad access key")),
+        );
+    }
     let full_path = format!("{}/{path}", state.data_dir);
     if !fs::metadata(&full_path).await.is_ok() {
         return status::Custom(Status::InternalServerError, Json(json!("Failed, bad path")));

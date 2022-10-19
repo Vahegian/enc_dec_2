@@ -7,6 +7,7 @@ pub struct State {
     pub key: Vec<u8>,
     pub nonce: Vec<u8>,
     pub data_dir: String,
+    pub access_key: String
 }
 
 #[derive(Debug, Serialize, Deserialize)]
