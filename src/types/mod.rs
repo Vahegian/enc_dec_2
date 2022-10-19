@@ -7,7 +7,6 @@ pub struct State {
     pub key: Vec<u8>,
     pub nonce: Vec<u8>,
     pub data_dir: String,
-    pub buffer_size: Option<u64>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
