@@ -123,6 +123,7 @@
     <script>
         const folderSVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Pro 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license (Commercial License) Copyright 2022 Fonticons, Inc. --><path d="M64 480H448c35.3 0 64-28.7 64-64V160c0-35.3-28.7-64-64-64H298.5c-17 0-33.3-6.7-45.3-18.7L226.7 50.7c-12-12-28.3-18.7-45.3-18.7H64C28.7 32 0 60.7 0 96V416c0 35.3 28.7 64 64 64z"/></svg>`
         const fileSVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 384 512"><!--! Font Awesome Pro 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license (Commercial License) Copyright 2022 Fonticons, Inc. --><path d="M0 64C0 28.7 28.7 0 64 0H224V128c0 17.7 14.3 32 32 32H384V448c0 35.3-28.7 64-64 64H64c-35.3 0-64-28.7-64-64V64zm384 64H256V0L384 128z"/></svg>`
+        const playSVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 384 512"><!--! Font Awesome Pro 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license (Commercial License) Copyright 2022 Fonticons, Inc. --><path d="M73 39c-14.8-9.1-33.4-9.4-48.5-.9S0 62.6 0 80V432c0 17.4 9.4 33.4 24.5 41.9s33.7 8.1 48.5-.9L361 297c14.3-8.7 23-24.2 23-41s-8.7-32.2-23-41L73 39z"/></svg>`
         let cur_dir = "";
         let dir_dec_map = new Map();
 
@@ -145,17 +146,23 @@
             })
         }
 
-        function get_right_content(path, name){
+        function showVid(path, id){
+            document.querySelector(`#${id}`).innerHTML=`<video src='/download?path=${path}&key=${get_access_key()}' controls autoplay></video>`
+        }
+
+        function get_right_content(path, name, id){
             let l_name = name.toLocaleLowerCase();
             if(l_name.endsWith(".ts") || l_name.endsWith(".mp4") || l_name.endsWith(".avi")){
-                return `<video src="/download?path=${path}&key=${get_access_key()}" controls></video>`
+                return `<div id="vv${id}" onclick="showVid('${path}', 'vv${id}')">
+                    ${playSVG}
+                </div>`
             }
 
             if(l_name.endsWith(".gif") || l_name.endsWith(".png") || l_name.endsWith(".jpg") || l_name.endsWith(".jpeg")){
                 return `<img src="/download?path=${path}&key=${get_access_key()}" onclick="document.querySelector('#img-display').src='/download?path=${path}&key=${get_access_key()}'"></img>`
             }
 
-            return fileSVG
+            return `<div>${fileSVG}</div>`
         }
 
         function ls(path) {
@@ -170,10 +177,10 @@
                         document.querySelector("#browser").innerHTML +=
                             `
                                 <div class="entry" ${v.is_dir && `onclick="ls('${cur_dir}/${v.enc_name}')"`}>
-                                    <div>${v.is_dir ? folderSVG : get_right_content(`${cur_dir}/${v.enc_name}`, v.name)}</div>
+                                    ${v.is_dir ? folderSVG : get_right_content(`${cur_dir}/${v.enc_name}`, v.name, i)}
                                     <span>${name_short(v.name)}</span>
                                     <span>${name_short(v.enc_name)}</span>
-                                    ${!v.is_dir ? `<a href='/download?path=${cur_dir}/${v.enc_name}' download="${v.name}">Download</a>` : ''}
+                                    ${!v.is_dir ? `<a href='/download?path=${cur_dir}/${v.enc_name}&key=${get_access_key()}' download="${v.name}">Download</a>` : ''}
                                 </div>
                             `
 
