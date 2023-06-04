@@ -1,8 +1,8 @@
-# FROM rust:1.64.0-buster
+# FROM rust:1.69.0-buster
 
 # COPY ./src /build/src
 # COPY ./Cargo.toml /build/Cargo.toml
-
+# COPY ./Cargo.lock /build/Cargo.lock
 # RUN cd /build && cargo build --release
 
 
